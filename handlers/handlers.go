@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
 	"github.com/golang/glog"
 	"github.com/husobee/suggest/data"
+	"github.com/husobee/suggest/middleware"
+	"github.com/husobee/suggest/response"
 )
 
 // GetHandler - Retrieval of term
@@ -16,25 +19,31 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	payload, err := data.Retrieve(key)
 	if err != nil {
 		// handle error (gracefully :))
-		var result = getTermResult{
+		var result = response.Result{
 			Status:  http.StatusText(http.StatusInternalServerError),
 			Message: "failure in retrieving results",
 		}
-		w.WriteHeader(http.StatusInternalServerError)
-		encoder := json.NewEncoder(w)
-		encoder.Encode(result)
+		glog.Errorf("Error retrieving results: %v", err)
+		// set result to request context
+		write(r, http.StatusInternalServerError, result)
 		return
 	}
 
-	var result = getTermResult{
-		Status:  http.StatusText(http.StatusOK),
-		Message: "successful in retrieving results",
+	var result = response.GetTermResult{
+		Result: response.Result{
+			Status:  http.StatusText(http.StatusOK),
+			Message: "successful in retrieving results",
+		},
 		Payload: payload,
 	}
 	// all is good, return with good status code and result
-	w.WriteHeader(http.StatusOK)
-	encoder := json.NewEncoder(w)
-	encoder.Encode(result)
+	write(r, http.StatusOK, result)
+}
+
+// write - helper to get the result on the context for the response middleware
+func write(r *http.Request, status int, result interface{}) {
+	*r = *r.WithContext(context.WithValue(r.Context(), middleware.StatusCodeKey, status))
+	*r = *r.WithContext(context.WithValue(r.Context(), middleware.ResponseStructKey, result))
 }
 
 // PostHandler - Insertion of term
@@ -77,26 +86,13 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create a new result
-	result := postTermResult{
-		Status:  http.StatusText(http.StatusOK),
-		Message: "successful insertion of term",
+	result := response.PostTermResult{
+		Result: response.Result{
+			Status:  http.StatusText(http.StatusOK),
+			Message: "successful insertion of term",
+		},
 	}
 
-	// write success result to caller
-	w.WriteHeader(http.StatusOK)
-	encoder := json.NewEncoder(w)
-	encoder.Encode(result)
-}
-
-// postTermResult - result data structure for post term endpoint
-type postTermResult struct {
-	Status  string `json:"status,omitempty"`
-	Message string `json:"message,omitempty"`
-}
-
-// getTermResult - result data structure for get term endpoint
-type getTermResult struct {
-	Status  string      `json:"status,omitempty"`
-	Message string      `json:"message,omitempty"`
-	Payload interface{} `json:"payload,omitempty"`
+	// write response
+	write(r, http.StatusOK, result)
 }

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +9,8 @@ import (
 
 	"github.com/bouk/monkey"
 	"github.com/husobee/suggest/data"
+	"github.com/husobee/suggest/middleware"
+	"github.com/husobee/suggest/response"
 )
 
 func TestGetHandler(t *testing.T) {
@@ -25,14 +26,7 @@ func TestGetHandler(t *testing.T) {
 
 	GetHandler(w, r)
 
-	resp := w.Result()
-
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("invalid status code, expected OK got %s", resp.Status)
-	}
-	decoder := json.NewDecoder(resp.Body)
-	var result = &getTermResult{}
-	decoder.Decode(result)
+	var result = r.Context().Value(middleware.ResponseStructKey).(response.GetTermResult)
 
 	if result.Status != http.StatusText(http.StatusOK) {
 		t.Errorf("invalid status, expected OK got %s", result.Status)
@@ -57,20 +51,11 @@ func TestGetHandlerFailure(t *testing.T) {
 
 	GetHandler(w, r)
 
-	resp := w.Result()
-
-	if resp.StatusCode != http.StatusInternalServerError {
-		t.Errorf(
-			"invalid status code, expected %s got %s",
-			http.StatusText(http.StatusInternalServerError), resp.Status)
-	}
-	decoder := json.NewDecoder(resp.Body)
-	var result = &getTermResult{}
-	decoder.Decode(result)
+	var result = r.Context().Value(middleware.ResponseStructKey).(response.Result)
 
 	if result.Status != http.StatusText(http.StatusInternalServerError) {
 		t.Errorf("invalid status, expected %s got %s",
-			http.StatusText(http.StatusInternalServerError), resp.Status)
+			http.StatusText(http.StatusInternalServerError), result.Status)
 	}
 	if result.Message != "failure in retrieving results" {
 		t.Errorf(
@@ -92,14 +77,7 @@ func TestPostHandler(t *testing.T) {
 
 	PostHandler(w, r)
 
-	resp := w.Result()
-
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("invalid status code, expected OK got %s", resp.Status)
-	}
-	decoder := json.NewDecoder(resp.Body)
-	var result = &postTermResult{}
-	decoder.Decode(result)
+	var result = r.Context().Value(middleware.ResponseStructKey).(response.PostTermResult)
 
 	if result.Status != http.StatusText(http.StatusOK) {
 		t.Errorf("invalid status, expected OK got %s", result.Status)

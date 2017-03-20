@@ -11,6 +11,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/husobee/suggest/data"
 	"github.com/husobee/suggest/handlers"
+	"github.com/husobee/suggest/middleware"
 	"github.com/husobee/vestigo"
 )
 
@@ -49,9 +50,24 @@ func init() {
 func main() {
 	// setup http router
 	router := vestigo.NewRouter()
+
+	// generic middlewares for all routes
+	var middlewares = []middleware.Middleware{
+		middleware.LoggingMiddleware,
+		middleware.ResponseMiddleware,
+		middleware.RecoveryMiddleware,
+	}
+
 	// define routes, get suggestions, post terms
-	router.Get("/", handlers.GetHandler)
-	router.Post("/", handlers.PostHandler)
+	router.Get("/", middleware.BuildChain(
+		handlers.GetHandler,
+		middlewares...,
+	))
+	router.Post("/", middleware.BuildChain(
+		handlers.PostHandler,
+		middlewares...,
+	))
+
 	// Setting up router global  CORS policy
 	router.SetGlobalCors(&vestigo.CorsAccessControl{
 		AllowOrigin:      corsAllowOrigin,
